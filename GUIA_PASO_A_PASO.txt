@@ -257,7 +257,7 @@ Graba con OBS o grabacion de pantalla mostrando:
 ==============================================================
 
 1. Liga a GitHub (publico, validado en incognito)
-2. Reporte PDF y Word (usa el PowerPoint incluido como base)
+2. Reporte PDF y Word 
 3. Video demostrativo
 
 ==============================================================
