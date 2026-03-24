@@ -1,0 +1,263 @@
+==============================================================
+  GUIA PASO A PASO - PAQUEXPRESS DESDE CERO
+  Flutter + FastAPI + MySQL
+==============================================================
+
+REQUISITOS PREVIOS:
+- Flutter instalado (flutter doctor sin errores criticos)
+- Python 3.10+ instalado
+- MySQL/MariaDB instalado y corriendo
+- VS Code instalado
+- Google Maps API Key (console.cloud.google.com)
+
+==============================================================
+  PASO 1 — CREAR ESTRUCTURA DEL PROYECTO
+==============================================================
+
+Abre terminal en VS Code:
+
+cd %USERPROFILE%\Documents
+mkdir paquexpress
+cd paquexpress
+flutter create app
+
+==============================================================
+  PASO 2 — EXTRAER ARCHIVOS DEL ZIP
+==============================================================
+
+Descomprime el ZIP dentro de:
+C:\Users\TU_USER\Documents\paquexpress\
+
+Windows pregunta "sobreescribir?" -> SI A TODO
+
+Los archivos del ZIP reemplazan:
+  - api\ (5 archivos Python)
+  - db\schema.sql
+  - app\lib\ (main.dart + carpetas models, services, screens)
+  - README.md
+
+==============================================================
+  PASO 3 — CONFIGURAR FLUTTER (pubspec.yaml)
+==============================================================
+
+Abre app\pubspec.yaml y REEMPLAZA la seccion dependencies:
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.0
+  geolocator: ^13.0.1
+  image_picker: ^1.1.2
+  google_maps_flutter: ^2.9.0
+  shared_preferences: ^2.3.3
+  permission_handler: ^11.3.1
+
+Luego en terminal:
+
+cd app
+flutter pub get
+
+==============================================================
+  PASO 4 — CONFIGURAR ANDROID
+==============================================================
+
+4A) Abre app\android\app\src\main\AndroidManifest.xml
+    Reemplaza TODO el contenido con:
+
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <application
+        android:label="app"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher">
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="TU_API_KEY_GOOGLE_MAPS"/>
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <meta-data
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme"/>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2"/>
+    </application>
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+    </queries>
+</manifest>
+
+4B) Abre app\android\app\build.gradle.kts
+    Busca esta linea:
+        minSdk = flutter.minSdkVersion
+    Cambiala a:
+        minSdk = 21
+
+==============================================================
+  PASO 5 — ARREGLAR TEST (opcional pero quita el error rojo)
+==============================================================
+
+Abre app\test\widget_test.dart y reemplaza TODO con:
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:app/main.dart';
+
+void main() {
+  testWidgets('App se inicia correctamente', (WidgetTester tester) async {
+    await tester.pumpWidget(const PaquexpressApp());
+    expect(find.text('Paquexpress'), findsOneWidget);
+  });
+}
+
+==============================================================
+  PASO 6 — CREAR BASE DE DATOS
+==============================================================
+
+Abre terminal (fuera de VS Code esta bien):
+
+"C:\Program Files\MySQL\MySQL Server 9.5\bin\mysql" -u root -p
+
+(Escribe tu contrasena)
+
+Luego pega esto en MySQL:
+
+CREATE DATABASE IF NOT EXISTS paquexpress;
+USE paquexpress;
+
+CREATE TABLE agentes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE paquetes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    codigo VARCHAR(50) UNIQUE NOT NULL,
+    direccion_destino VARCHAR(255) NOT NULL,
+    latitud_destino DOUBLE,
+    longitud_destino DOUBLE,
+    agente_id INT,
+    estado ENUM('pendiente', 'entregado') DEFAULT 'pendiente',
+    foto_evidencia LONGTEXT,
+    latitud_entrega DOUBLE,
+    longitud_entrega DOUBLE,
+    fecha_entrega TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (agente_id) REFERENCES agentes(id)
+);
+
+exit
+
+==============================================================
+  PASO 7 — CONFIGURAR Y CORRER LA API
+==============================================================
+
+7A) Abre api\database.py y cambia "TU_PASSWORD" por tu
+    contrasena real de MySQL.
+
+7B) En terminal de VS Code:
+
+cd C:\Users\TU_USER\Documents\paquexpress\api
+pip install -r requirements.txt
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+7C) Abre http://localhost:8000/docs en tu navegador.
+    Ve a POST /register, click Try it out, pon:
+
+{
+  "nombre": "Agente Demo",
+  "email": "demo@paquexpress.com",
+  "password": "123456"
+}
+
+    Click Execute. Debe decir "Agente registrado".
+
+7D) Anota el "id" que te devolvio (ejemplo: 1).
+    Abre otra terminal y entra a MySQL:
+
+"C:\Program Files\MySQL\MySQL Server 9.5\bin\mysql" -u root -p
+
+USE paquexpress;
+
+INSERT INTO paquetes (codigo, direccion_destino, latitud_destino, longitud_destino, agente_id) VALUES
+('PAQ-001', 'Av. Universidad 100, Queretaro', 20.5888, -100.3899, 1),
+('PAQ-002', 'Blvd. Bernardo Quintana 500, Queretaro', 20.6069, -100.3827, 1),
+('PAQ-003', 'Av. Constituyentes 150, Queretaro', 20.5931, -100.4070, 1);
+
+exit
+
+    (Si tu id fue distinto de 1, cambia el 1 en agente_id)
+
+==============================================================
+  PASO 8 — CORRER LA APP FLUTTER
+==============================================================
+
+En OTRA terminal (deja la API corriendo):
+
+cd C:\Users\TU_USER\Documents\paquexpress\app
+flutter run
+
+Selecciona Chrome si te pregunta.
+Login con:
+  Email: demo@paquexpress.com
+  Password: 123456
+
+==============================================================
+  PASO 9 — SUBIR A GITHUB
+==============================================================
+
+cd C:\Users\TU_USER\Documents\paquexpress
+git init
+git add .
+git commit -m "Paquexpress - Flutter + FastAPI + MySQL"
+
+Crea repo PUBLICO en github.com, luego:
+
+git remote add origin https://github.com/TU_USER/paquexpress.git
+git branch -M main
+git push -u origin main
+
+VALIDA: Abre la liga en modo incognito.
+
+==============================================================
+  PASO 10 — VIDEO DEMOSTRATIVO
+==============================================================
+
+Graba con OBS o grabacion de pantalla mostrando:
+1. Login del agente
+2. Lista de paquetes cargados desde la API
+3. Click en mapa para ver direccion
+4. Click en camara para tomar foto
+5. Obtener GPS
+6. Click "Paquete Entregado"
+7. Verificar en /docs o en MySQL que se guardo
+
+==============================================================
+  LISTO! ENTREGABLES:
+==============================================================
+
+1. Liga a GitHub (publico, validado en incognito)
+2. Reporte PDF y Word (usa el PowerPoint incluido como base)
+3. Video demostrativo
+
+==============================================================
